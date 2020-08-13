@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 def read_csv(path):
@@ -20,4 +21,6 @@ class ToyDataset(Dataset):
     
     def __getitem__(self, idx):
         x = self.data[idx]
-        return self.transform(x)
+        if self.transform is not None:
+            x = self.transform(x)
+        return x
