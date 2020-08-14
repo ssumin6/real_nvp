@@ -14,10 +14,7 @@ def train(net, optim, prior, x, device):
     x = 0.05 + (1-0.05)*x
     z, log_det_loss = net.forward(x)
     optim.zero_grad()
-    loss = prior.log_prob(z)
-    # print("prior loss %f" %loss.mean())
-    loss += log_det_loss
-    # print("added loss %f" %loss.mean())
+    loss = prior.log_prob(z) + log_det_loss
     loss = -loss.mean()
     loss.backward()
     optim.step()
@@ -69,8 +66,9 @@ def main(args):
     prior = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
 
     net = Net(N=3, input_dim=2, hidden_dim=256).to(device)
-    optim = torch.optim.Adam(net.parameters(), lr=args.lr)
+    optim = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=5e-4)
     losses = []
+    bst_loss = 1e9
 
     if args.load_model:
         ckpt = torch.load(args.save_path)
@@ -79,14 +77,22 @@ def main(args):
 
     for epoch in range(args.epochs):
         net.train()
+        loss_tracker = []
+
         for _, x in enumerate(train_dataloader):
             loss = train(net, optim, prior, x, device)
-            losses.append(loss)
+            loss_tracker.append(loss)
+
         if (epoch != 0 and epoch % 10 == 0):
-            avg_loss = sum(losses[-10:]) / 10.
+            avg_loss = sum(loss_tracker) / len(loss_tracker)
             print("Epoch %d : Train Loss %f" %(epoch+1, avg_loss))
-        if (epoch % args.save_epoch == 0):
-            torch.save({'net': net.state_dict(),'optim': optim.state_dict(), 'epoch': epoch+1}, args.save_path)
+            loss_tracker = []
+            losses.append(avg_loss)
+
+            if (avg_loss < bst_loss):
+                torch.save({'net': net.state_dict(),'optim': optim.state_dict(), 'epoch': epoch+1}, args.save_path)
+            
+
     draw_loss_graph(losses)
     with torch.no_grad():
         x = next(iter(train_dataloader))
@@ -102,10 +108,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="NVP")
     parser.add_argument('--path', type=str, default='realnvp_toydata.csv')
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--seed', type=int, default=72)
     parser.add_argument('--lr', type=float, default=1e-04)
-    parser.add_argument('--save_epoch', type=int, default=25)
     parser.add_argument('--save_path', type=str, default='model.ckpt')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test', action='store_true')

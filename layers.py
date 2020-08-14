@@ -20,7 +20,7 @@ def reverse_mask(mask):
 class AffineCouplingLayer(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super(AffineCouplingLayer, self).__init__()
-        self.net = nn.Sequential(nn.Linear(input_dim, hidden_dim), nn.LeakyReLU(), nn.Linear(hidden_dim, hidden_dim), nn.LeakyReLU(), nn.Linear(hidden_dim, 2*input_dim))
+        self.net = nn.Sequential(nn.Linear(input_dim, hidden_dim), nn.LeakyReLU(), nn.Linear(hidden_dim, hidden_dim), nn.BatchNorm1d(hidden_dim), nn.LeakyReLU(), nn.Linear(hidden_dim, 2*input_dim))
 
     def forward(self, input, binary_mask, reverse=False):
         x0 = torch.mul(input, binary_mask)
@@ -46,6 +46,7 @@ class Net(nn.Module):
     def __init__(self, N, input_dim, hidden_dim):
         super(Net, self).__init__()
         self.n = N
+
         self.layers = nn.ModuleList([AffineCouplingLayer(input_dim=input_dim, hidden_dim=hidden_dim) for _ in range(self.n)])
 
     def forward(self, input, reverse=False):
