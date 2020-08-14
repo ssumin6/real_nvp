@@ -53,6 +53,7 @@ class Net(nn.Module):
         binary_mask = create_mask(input)
         log_det_loss = 0 
         z = input
+        index_range = range(self.n) if not reverse else range(self.n-1, -1 , -1)
         for idx in range(self.n):
             if (idx+1) % 2 == 0:
                 z, log_det = self.layers[idx](z, reverse_mask(binary_mask), reverse)
