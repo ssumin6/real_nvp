@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import argparse
 
@@ -31,7 +32,7 @@ def test(net=None, prior=None, device=None, ckpt=None):
     if net is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("device : %s" %(device))
-        net = Net(N=3, input_dim=2, hidden_dim=256).to(device)
+        net = Net(N=4, input_dim=2, hidden_dim=256, device=device).to(device)
         prior = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
         ckpt = torch.load(ckpt)
         net.load_state_dict(ckpt['net'])
@@ -65,7 +66,7 @@ def main(args):
     # 2D Normal Distribution
     prior = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
 
-    net = Net(N=3, input_dim=2, hidden_dim=256).to(device)
+    net = Net(N=4, input_dim=2, hidden_dim=256, device=device).to(device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=5e-4)
     losses = []
     bst_loss = 1e9
@@ -77,11 +78,15 @@ def main(args):
 
     for epoch in range(args.epochs):
         net.train()
+        start = time.time()
         loss_tracker = []
 
         for _, x in enumerate(train_dataloader):
             loss = train(net, optim, prior, x, device)
             loss_tracker.append(loss)
+            
+        if (epoch == 0):
+            print("Time takes for 1st epoch : %s." %(time.time()-start))
 
         if (epoch != 0 and epoch % 10 == 0):
             avg_loss = sum(loss_tracker) / len(loss_tracker)
@@ -92,13 +97,12 @@ def main(args):
             if (avg_loss < bst_loss):
                 torch.save({'net': net.state_dict(),'optim': optim.state_dict(), 'epoch': epoch+1}, args.save_path)
             
-
     draw_loss_graph(losses)
     with torch.no_grad():
         x = next(iter(train_dataloader))
         x = x.to(device)
         z, _ = net.forward(x)
-        pred_x, _ = net.forward(x, reverse=True)
+        pred_x, _ = net.forward(z, reverse=True)
         draw_plt(x[:,0], x[:, 1], name="train_x")
         draw_plt(z[:,0], z[:, 1], name="train_z")
         draw_plt(pred_x[:,0], pred_x[:, 1], name="train_pred_x")
